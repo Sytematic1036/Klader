@@ -185,14 +185,29 @@ def home():
 def webhook():
     """
     Webhook-endpoint som tar emot förfrågan från Power Automate.
-    Förväntar JSON med 'namn' och eventuellt 'vill_kopa'.
+    Förväntar JSON med 'namn' eller 'email_body' (hela mejlinnehållet).
+    Om 'email_body' skickas extraheras namnet automatiskt från "Namn: XXX".
     """
     data = request.get_json()
 
-    if not data or "namn" not in data:
-        return jsonify({"error": "Saknar 'namn' i request"}), 400
+    if not data:
+        return jsonify({"error": "Ingen data mottagen"}), 400
 
-    person_name = data["namn"]
+    # Hantera både direkt 'namn' och 'email_body'
+    person_name = None
+
+    if "namn" in data and data["namn"]:
+        person_name = data["namn"].strip()
+    elif "email_body" in data:
+        # Extrahera namn från mejlkroppen (format: "Namn: XXX")
+        email_body = data["email_body"]
+        match = re.search(r'Namn:\s*([^\n\r]+)', email_body, re.IGNORECASE)
+        if match:
+            person_name = match.group(1).strip()
+
+    if not person_name:
+        return jsonify({"error": "Kunde inte hitta namn. Skicka 'namn' eller 'email_body' med 'Namn: XXX'"}), 400
+
     vill_kopa = data.get("vill_kopa", "")
 
     # Hitta senaste Excel-filen
