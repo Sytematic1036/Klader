@@ -38,11 +38,8 @@ CHEF_EMAIL = os.getenv("CHEF_EMAIL", "marcus.hager@edsvikensel.se")
 INVITE_CODE = os.getenv("INVITE_CODE", "klader2024")
 ALLOWED_EMAILS = [e.strip().lower() for e in os.getenv("ALLOWED_EMAILS", "").split(",") if e.strip()]
 
-# På Render: använd data-mappen i projektet, lokalt: OneDrive
-if os.path.exists("/opt/render"):
-    EXCEL_PATH = os.getenv("EXCEL_PATH", "/opt/render/project/src/data")
-else:
-    EXCEL_PATH = os.getenv("EXCEL_PATH", r"C:\Users\MarcusHäger\OneDrive - SELATEK\Statistik")
+# Använd alltid data-mappen i projektet för uppladdade filer
+EXCEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
 
 # ==================== DATABAS-MODELLER ====================
