@@ -15,7 +15,11 @@ app = Flask(__name__)
 # Konfigurera Resend
 resend.api_key = os.getenv("RESEND_API_KEY")
 CHEF_EMAIL = os.getenv("CHEF_EMAIL", "marcus.hager@edsvikensel.se")
-EXCEL_PATH = os.getenv("EXCEL_PATH", r"C:\Users\MarcusHäger\OneDrive - SELATEK\Statistik")
+# På Render: använd data-mappen i projektet, lokalt: OneDrive
+if os.path.exists("/opt/render"):
+    EXCEL_PATH = os.getenv("EXCEL_PATH", "/opt/render/project/src/data")
+else:
+    EXCEL_PATH = os.getenv("EXCEL_PATH", r"C:\Users\MarcusHäger\OneDrive - SELATEK\Statistik")
 
 
 def get_latest_excel_file():
