@@ -1,6 +1,6 @@
 import os
 import re
-import glob
+import io
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import Flask, request, jsonify, render_template, redirect, url_for, session, flash
@@ -38,8 +38,6 @@ CHEF_EMAIL = os.getenv("CHEF_EMAIL", "marcus.hager@edsvikensel.se")
 INVITE_CODE = os.getenv("INVITE_CODE", "klader2024")
 ALLOWED_EMAILS = [e.strip().lower() for e in os.getenv("ALLOWED_EMAILS", "").split(",") if e.strip()]
 
-# Använd alltid data-mappen i projektet för uppladdade filer
-EXCEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
 
 # ==================== DATABAS-MODELLER ====================
@@ -64,6 +62,17 @@ class LoginEvent(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     login_time = db.Column(db.DateTime, default=datetime.utcnow)
     ip_address = db.Column(db.String(50))
+
+
+class ExcelFile(db.Model):
+    """Lagrar Excel-filen i databasen för persistent lagring."""
+    __tablename__ = 'excel_files'
+    id = db.Column(db.Integer, primary_key=True)
+    filename = db.Column(db.String(255), nullable=False)
+    data = db.Column(db.LargeBinary, nullable=False)
+    size = db.Column(db.Integer, nullable=False)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+    uploaded_by = db.Column(db.String(120))
 
 
 # Skapa tabeller
@@ -195,17 +204,16 @@ def dashboard():
 # ==================== FILHANTERING ====================
 
 def get_current_file_info():
-    """Hämta info om nuvarande Excel-fil."""
-    excel_file = get_latest_excel_file()
+    """Hämta info om nuvarande Excel-fil från databasen."""
+    excel_file = get_excel_file_from_db()
     if not excel_file:
         return None
 
-    stat = os.stat(excel_file)
     return {
-        "name": os.path.basename(excel_file),
-        "path": excel_file,
-        "size": round(stat.st_size / 1024, 1),
-        "modified": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M")
+        "name": excel_file.filename,
+        "size": round(excel_file.size / 1024, 1),
+        "modified": excel_file.uploaded_at.strftime("%Y-%m-%d %H:%M"),
+        "uploaded_by": excel_file.uploaded_by
     }
 
 
@@ -227,7 +235,7 @@ def files_page():
 @app.route("/upload", methods=["POST"])
 @login_required
 def upload_file():
-    """Ladda upp ny Excel-fil."""
+    """Ladda upp ny Excel-fil och spara i databasen."""
     if 'file' not in request.files:
         return redirect(url_for('files_page', message="Ingen fil vald", type="error"))
 
@@ -239,21 +247,23 @@ def upload_file():
     if not file.filename.endswith('.xlsx'):
         return redirect(url_for('files_page', message="Endast .xlsx-filer tillåtna", type="error"))
 
-    # Skapa data-mappen om den inte finns
-    os.makedirs(EXCEL_PATH, exist_ok=True)
-
-    # Ta bort befintliga Excel-filer först
-    existing_files = glob.glob(os.path.join(EXCEL_PATH, "*.xlsx"))
-    for f in existing_files:
-        try:
-            os.remove(f)
-        except Exception:
-            pass
-
-    # Spara ny fil
+    # Läs fildata
     filename = secure_filename(file.filename)
-    filepath = os.path.join(EXCEL_PATH, filename)
-    file.save(filepath)
+    file_data = file.read()
+    file_size = len(file_data)
+
+    # Ta bort befintliga filer från databasen
+    ExcelFile.query.delete()
+
+    # Spara ny fil i databasen
+    excel_file = ExcelFile(
+        filename=filename,
+        data=file_data,
+        size=file_size,
+        uploaded_by=session.get('user')
+    )
+    db.session.add(excel_file)
+    db.session.commit()
 
     return redirect(url_for('files_page', message=f"Filen '{filename}' har laddats upp", type="success"))
 
@@ -261,15 +271,16 @@ def upload_file():
 @app.route("/delete-file", methods=["POST"])
 @login_required
 def delete_file():
-    """Radera nuvarande Excel-fil."""
-    excel_file = get_latest_excel_file()
+    """Radera nuvarande Excel-fil från databasen."""
+    excel_file = get_excel_file_from_db()
 
     if not excel_file:
         return redirect(url_for('files_page', message="Ingen fil att radera", type="error"))
 
     try:
-        filename = os.path.basename(excel_file)
-        os.remove(excel_file)
+        filename = excel_file.filename
+        db.session.delete(excel_file)
+        db.session.commit()
         return redirect(url_for('files_page', message=f"Filen '{filename}' har raderats", type="success"))
     except Exception as e:
         return redirect(url_for('files_page', message=f"Kunde inte radera filen: {str(e)}", type="error"))
@@ -283,22 +294,26 @@ def health():
     return jsonify({"status": "ok", "message": "Kläder-API är igång!"})
 
 
-def get_latest_excel_file():
-    """Hitta senaste Excel-filen i Statistik-mappen."""
-    pattern = os.path.join(EXCEL_PATH, "*.xlsx")
-    files = glob.glob(pattern)
-    if not files:
+def get_excel_file_from_db():
+    """Hämta Excel-filen från databasen."""
+    return ExcelFile.query.order_by(ExcelFile.uploaded_at.desc()).first()
+
+
+def get_excel_data_as_file():
+    """Hämta Excel-data som en fil-lik objekt för pandas."""
+    excel_file = get_excel_file_from_db()
+    if not excel_file:
         return None
-    # Returnera senast modifierade filen
-    return max(files, key=os.path.getmtime)
+    return io.BytesIO(excel_file.data)
 
 
-def parse_excel_for_person(file_path, person_name):
+def parse_excel_for_person(excel_data, person_name):
     """
     Läs Excel-filen och hitta alla inköp för en person.
+    excel_data kan vara en filsökväg eller ett BytesIO-objekt.
     Returnerar dict med personinfo och lista med inköp.
     """
-    df = pd.read_excel(file_path, header=None)
+    df = pd.read_excel(excel_data, header=None)
 
     person_name_upper = person_name.upper().strip()
     search_names = [person_name_upper]
@@ -463,11 +478,11 @@ def webhook():
     if not vill_kopa and data.get("vill_kopa"):
         vill_kopa = data.get("vill_kopa", "")
 
-    excel_file = get_latest_excel_file()
-    if not excel_file:
+    excel_data = get_excel_data_as_file()
+    if not excel_data:
         return jsonify({"error": "Ingen Excel-fil hittades"}), 404
 
-    person_data = parse_excel_for_person(excel_file, person_name)
+    person_data = parse_excel_for_person(excel_data, person_name)
 
     if not person_data["inkop"] and not person_data["saldo"]:
         return jsonify({"error": f"Hittade ingen data för {person_name}"}), 404
@@ -493,11 +508,11 @@ def webhook():
 @app.route("/test/<namn>", methods=["GET"])
 def test_person(namn):
     """Test-endpoint för att söka efter en person utan att skicka mejl."""
-    excel_file = get_latest_excel_file()
-    if not excel_file:
+    excel_data = get_excel_data_as_file()
+    if not excel_data:
         return jsonify({"error": "Ingen Excel-fil hittades"}), 404
 
-    person_data = parse_excel_for_person(excel_file, namn)
+    person_data = parse_excel_for_person(excel_data, namn)
     return jsonify(person_data)
 
 
