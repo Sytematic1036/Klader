@@ -188,10 +188,15 @@ def webhook():
     Förväntar JSON med 'namn' eller 'email_body' (hela mejlinnehållet).
     Om 'email_body' skickas extraheras namnet automatiskt från "Namn: XXX".
     """
-    data = request.get_json()
+    try:
+        data = request.get_json(force=True, silent=True)
+    except Exception as e:
+        return jsonify({"error": f"Kunde inte parsa JSON: {str(e)}"}), 400
 
     if not data:
-        return jsonify({"error": "Ingen data mottagen"}), 400
+        # Försök läsa raw body
+        raw_body = request.get_data(as_text=True)
+        return jsonify({"error": "Ingen data mottagen", "raw_body_preview": raw_body[:200] if raw_body else "tom"}), 400
 
     # Hantera både direkt 'namn' och 'email_body'
     person_name = None
@@ -200,13 +205,23 @@ def webhook():
         person_name = data["namn"].strip()
     elif "email_body" in data:
         # Extrahera namn från mejlkroppen (format: "Namn: XXX")
-        email_body = data["email_body"]
-        match = re.search(r'Namn:\s*([^\n\r]+)', email_body, re.IGNORECASE)
+        email_body = str(data["email_body"])
+
+        # Ta bort HTML-taggar för enklare parsing
+        clean_body = re.sub(r'<[^>]+>', ' ', email_body)
+
+        # Försök hitta "Namn: XXX" - ta bara bokstäver, mellanslag och svenska tecken
+        match = re.search(r'Namn:\s*([A-Za-zÅÄÖåäö\s\-]+)', clean_body, re.IGNORECASE)
         if match:
             person_name = match.group(1).strip()
+            # Ta bort eventuella extra mellanslag
+            person_name = ' '.join(person_name.split())
 
     if not person_name:
-        return jsonify({"error": "Kunde inte hitta namn. Skicka 'namn' eller 'email_body' med 'Namn: XXX'"}), 400
+        return jsonify({
+            "error": "Kunde inte hitta namn. Skicka 'namn' eller 'email_body' med 'Namn: XXX'",
+            "received_keys": list(data.keys()) if data else []
+        }), 400
 
     vill_kopa = data.get("vill_kopa", "")
 
