@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: klader-webhook
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: RESEND_API_KEY
+        sync: false
+      - key: CHEF_EMAIL
+        sync: false
+      - key: EXCEL_PATH
+        value: ./Statistik
