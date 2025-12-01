@@ -201,10 +201,12 @@ def webhook():
     # Hantera både direkt 'namn' och 'email_body'
     person_name = None
 
+    vill_kopa = ""
+
     if "namn" in data and data["namn"]:
         person_name = data["namn"].strip()
     elif "email_body" in data:
-        # Extrahera namn från mejlkroppen (format: "Namn: XXX")
+        # Extrahera namn och vill_kopa från mejlkroppen
         email_body = str(data["email_body"])
 
         # Ta bort HTML-taggar för enklare parsing
@@ -217,13 +219,22 @@ def webhook():
             # Ta bort eventuella extra mellanslag
             person_name = ' '.join(person_name.split())
 
+        # Försök hitta "Vill köpa: XXX" från mejlkroppen
+        vill_kopa_match = re.search(r'Vill\s*köpa:\s*([^\n\r]+)', clean_body, re.IGNORECASE)
+        if vill_kopa_match:
+            vill_kopa = vill_kopa_match.group(1).strip()
+            # Ta bort eventuella extra mellanslag
+            vill_kopa = ' '.join(vill_kopa.split())
+
     if not person_name:
         return jsonify({
             "error": "Kunde inte hitta namn. Skicka 'namn' eller 'email_body' med 'Namn: XXX'",
             "received_keys": list(data.keys()) if data else []
         }), 400
 
-    vill_kopa = data.get("vill_kopa", "")
+    # Tillåt även vill_kopa direkt från JSON
+    if not vill_kopa and data.get("vill_kopa"):
+        vill_kopa = data.get("vill_kopa", "")
 
     # Hitta senaste Excel-filen
     excel_file = get_latest_excel_file()
