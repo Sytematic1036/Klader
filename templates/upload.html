@@ -120,16 +120,35 @@
             position: relative;
             margin-bottom: 20px;
         }
-        .file-input-wrapper input[type="file"] {
-            width: 100%;
-            padding: 15px;
+        .file-input-wrapper .custom-file-upload {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 20px;
             border: 2px dashed #667eea;
             border-radius: 8px;
             background: #f8f9fa;
             cursor: pointer;
+            transition: all 0.3s;
         }
-        .file-input-wrapper input[type="file"]:hover {
+        .file-input-wrapper .custom-file-upload:hover {
             background: #e9ecef;
+            border-color: #764ba2;
+        }
+        .file-input-wrapper input[type="file"] {
+            display: none;
+        }
+        .file-input-wrapper .file-label {
+            display: inline-block;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .file-input-wrapper .file-name {
+            color: #666;
+            font-style: italic;
         }
         .message {
             padding: 15px;
@@ -205,10 +224,20 @@
             </p>
             <form action="/upload" method="POST" enctype="multipart/form-data" class="upload-form">
                 <div class="file-input-wrapper">
-                    <input type="file" name="file" accept=".xlsx" required>
+                    <label class="custom-file-upload" for="file-upload">
+                        <span class="file-label">Valj fil</span>
+                        <span class="file-name" id="file-name">Ingen fil vald</span>
+                    </label>
+                    <input type="file" name="file" id="file-upload" accept=".xlsx" required>
                 </div>
                 <button type="submit" class="btn btn-primary">Ladda upp</button>
             </form>
+            <script>
+                document.getElementById('file-upload').addEventListener('change', function() {
+                    var fileName = this.files[0] ? this.files[0].name : 'Ingen fil vald';
+                    document.getElementById('file-name').textContent = fileName;
+                });
+            </script>
         </div>
     </div>
 </body>
