@@ -213,7 +213,8 @@ def webhook():
         clean_body = re.sub(r'<[^>]+>', ' ', email_body)
 
         # Försök hitta "Namn: XXX" - ta bara bokstäver, mellanslag och svenska tecken
-        match = re.search(r'Namn:\s*([A-Za-zÅÄÖåäö\s\-]+)', clean_body, re.IGNORECASE)
+        # Stoppa vid "Vill" för att inte fånga "Vill köpa" som en del av namnet
+        match = re.search(r'Namn:\s*([A-Za-zÅÄÖåäö\s\-]+?)(?:\s*Vill|\s*$|\n|\r)', clean_body, re.IGNORECASE)
         if match:
             person_name = match.group(1).strip()
             # Ta bort eventuella extra mellanslag
