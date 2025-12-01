@@ -3,7 +3,8 @@ import re
 import glob
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import Flask, request, jsonify, render_template, redirect, url_for, session
+from flask import Flask, request, jsonify, render_template, redirect, url_for, session, flash
+from werkzeug.utils import secure_filename
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
@@ -192,6 +193,89 @@ def logout():
 def dashboard():
     """Dashboard för inloggade användare."""
     return render_template("dashboard.html", user=session.get('user'), chef_email=CHEF_EMAIL)
+
+
+# ==================== FILHANTERING ====================
+
+def get_current_file_info():
+    """Hämta info om nuvarande Excel-fil."""
+    excel_file = get_latest_excel_file()
+    if not excel_file:
+        return None
+
+    stat = os.stat(excel_file)
+    return {
+        "name": os.path.basename(excel_file),
+        "path": excel_file,
+        "size": round(stat.st_size / 1024, 1),
+        "modified": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M")
+    }
+
+
+@app.route("/files", methods=["GET"])
+@login_required
+def files_page():
+    """Sida för filhantering."""
+    current_file = get_current_file_info()
+    message = request.args.get("message")
+    message_type = request.args.get("type", "success")
+
+    return render_template("upload.html",
+                         user=session.get('user'),
+                         current_file=current_file,
+                         message=message,
+                         message_type=message_type)
+
+
+@app.route("/upload", methods=["POST"])
+@login_required
+def upload_file():
+    """Ladda upp ny Excel-fil."""
+    if 'file' not in request.files:
+        return redirect(url_for('files_page', message="Ingen fil vald", type="error"))
+
+    file = request.files['file']
+
+    if file.filename == '':
+        return redirect(url_for('files_page', message="Ingen fil vald", type="error"))
+
+    if not file.filename.endswith('.xlsx'):
+        return redirect(url_for('files_page', message="Endast .xlsx-filer tillåtna", type="error"))
+
+    # Skapa data-mappen om den inte finns
+    os.makedirs(EXCEL_PATH, exist_ok=True)
+
+    # Ta bort befintliga Excel-filer först
+    existing_files = glob.glob(os.path.join(EXCEL_PATH, "*.xlsx"))
+    for f in existing_files:
+        try:
+            os.remove(f)
+        except Exception:
+            pass
+
+    # Spara ny fil
+    filename = secure_filename(file.filename)
+    filepath = os.path.join(EXCEL_PATH, filename)
+    file.save(filepath)
+
+    return redirect(url_for('files_page', message=f"Filen '{filename}' har laddats upp", type="success"))
+
+
+@app.route("/delete-file", methods=["POST"])
+@login_required
+def delete_file():
+    """Radera nuvarande Excel-fil."""
+    excel_file = get_latest_excel_file()
+
+    if not excel_file:
+        return redirect(url_for('files_page', message="Ingen fil att radera", type="error"))
+
+    try:
+        filename = os.path.basename(excel_file)
+        os.remove(excel_file)
+        return redirect(url_for('files_page', message=f"Filen '{filename}' har raderats", type="success"))
+    except Exception as e:
+        return redirect(url_for('files_page', message=f"Kunde inte radera filen: {str(e)}", type="error"))
 
 
 # ==================== API ROUTES ====================
