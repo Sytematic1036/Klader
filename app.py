@@ -515,8 +515,9 @@ def webhook():
 
     html_content = create_email_html(person_data)
 
+    # Lägg till "Vill köpa" överst i mejlet
     if vill_kopa:
-        html_content += f"<p><strong>Vill köpa:</strong> {vill_kopa}</p>"
+        html_content = f"<p><strong>Vill köpa:</strong> {vill_kopa}</p><br>" + html_content
 
     # Returnera data till Power Automate (som skickar mejlet)
     return jsonify({
