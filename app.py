@@ -462,6 +462,7 @@ def webhook():
 
     person_name = None
     vill_kopa = ""
+    chef_email = DEFAULT_CHEF_EMAIL
 
     if "namn" in data and data["namn"]:
         person_name = data["namn"].strip()
@@ -469,21 +470,20 @@ def webhook():
         email_body = str(data["email_body"])
         clean_body = re.sub(r'<[^>]+>', ' ', email_body)
 
-        match = re.search(r'Namn:\s*([A-Za-zÅÄÖåäö\s\-]+?)(?:\s*Vill|\s*$|\n|\r)', clean_body, re.IGNORECASE)
+        # Parsa Namn (slutar vid Chef, Vill, radbrytning eller slut)
+        match = re.search(r'Namn:\s*([A-Za-zÅÄÖåäö\s\-]+?)(?:\s*Chef:|\s*Vill|\s*$|\n|\r)', clean_body, re.IGNORECASE)
         if match:
             person_name = match.group(1).strip()
             person_name = ' '.join(person_name.split())
 
+        # Parsa Vill köpa
         vill_kopa_match = re.search(r'Vill\s*köpa:\s*([^\n\r]+)', clean_body, re.IGNORECASE)
         if vill_kopa_match:
             vill_kopa = vill_kopa_match.group(1).strip()
             vill_kopa = ' '.join(vill_kopa.split())
 
-    # Parsa chef från mejlet
-    chef_name = ""
-    chef_email = DEFAULT_CHEF_EMAIL
-    if "email_body" in data:
-        chef_match = re.search(r'Chef:\s*([A-Za-zÅÄÖåäö\s\-]+?)(?:\s*Namn|\s*Vill|\s*$|\n|\r)', clean_body, re.IGNORECASE)
+        # Parsa Chef (slutar vid Namn, Vill, radbrytning eller slut)
+        chef_match = re.search(r'Chef:\s*([A-Za-zÅÄÖåäö\s\-]+?)(?:\s*Namn:|\s*Vill|\s*$|\n|\r)', clean_body, re.IGNORECASE)
         if chef_match:
             chef_name = chef_match.group(1).strip().lower()
             chef_name = ' '.join(chef_name.split())
