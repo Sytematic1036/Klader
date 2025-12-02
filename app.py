@@ -34,8 +34,18 @@ db = SQLAlchemy(app)
 
 # Konfigurera Resend
 resend.api_key = os.getenv("RESEND_API_KEY")
-CHEF_EMAIL = os.getenv("CHEF_EMAIL", "marcus.hager@edsvikensel.se")
 INVITE_CODE = os.getenv("INVITE_CODE", "klader2024")
+
+# Chefer och deras e-postadresser
+CHEFER = {
+    "marcus": "marcus.hager@edsvikensel.se",
+    "marcus häger": "marcus.hager@edsvikensel.se",
+    "andreas": "andreas.danielsson@edsvikensel.se",
+    "andreas danielsson": "andreas.danielsson@edsvikensel.se",
+    "pernilla": "pernilla.ostberg@msjobergsel.se",
+    "pernilla östberg": "pernilla.ostberg@msjobergsel.se",
+}
+DEFAULT_CHEF_EMAIL = "marcus.hager@edsvikensel.se"
 ALLOWED_EMAILS = [e.strip().lower() for e in os.getenv("ALLOWED_EMAILS", "").split(",") if e.strip()]
 
 
@@ -469,6 +479,18 @@ def webhook():
             vill_kopa = vill_kopa_match.group(1).strip()
             vill_kopa = ' '.join(vill_kopa.split())
 
+    # Parsa chef från mejlet
+    chef_name = ""
+    chef_email = DEFAULT_CHEF_EMAIL
+    if "email_body" in data:
+        chef_match = re.search(r'Chef:\s*([A-Za-zÅÄÖåäö\s\-]+?)(?:\s*Namn|\s*Vill|\s*$|\n|\r)', clean_body, re.IGNORECASE)
+        if chef_match:
+            chef_name = chef_match.group(1).strip().lower()
+            chef_name = ' '.join(chef_name.split())
+            # Hitta matchande chef
+            if chef_name in CHEFER:
+                chef_email = CHEFER[chef_name]
+
     if not person_name:
         return jsonify({
             "error": "Kunde inte hitta namn. Skicka 'namn' eller 'email_body' med 'Namn: XXX'",
@@ -500,6 +522,7 @@ def webhook():
         "kontobelopp": person_data["kontobelopp"],
         "antal_inkop": len(person_data["inkop"]),
         "vill_kopa": vill_kopa,
+        "chef_email": chef_email,
         "email_subject": f"Inköpshistorik för {person_name}",
         "email_body_html": html_content
     })
