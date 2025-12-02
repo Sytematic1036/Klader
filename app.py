@@ -470,22 +470,26 @@ def webhook():
         email_body = str(data["email_body"])
         clean_body = re.sub(r'<[^>]+>', ' ', email_body)
 
-        # Parsa Namn (slutar vid Chef, Vill, radbrytning eller slut)
-        match = re.search(r'Namn:\s*([A-Za-zÅÄÖåäö\s\-]+?)(?:\s*Chef:|\s*Vill|\s*$|\n|\r)', clean_body, re.IGNORECASE)
+        # Parsa Namn - matchar allt efter "Namn:" tills nästa fält eller radslut
+        match = re.search(r'Namn:\s*([A-Za-zÅÄÖåäö\s\-]+)', clean_body, re.IGNORECASE)
         if match:
             person_name = match.group(1).strip()
+            # Ta bort eventuella följande nyckelord
+            person_name = re.split(r'\s+(?:Chef|Vill)', person_name, flags=re.IGNORECASE)[0].strip()
             person_name = ' '.join(person_name.split())
 
         # Parsa Vill köpa
-        vill_kopa_match = re.search(r'Vill\s*köpa:\s*([^\n\r]+)', clean_body, re.IGNORECASE)
+        vill_kopa_match = re.search(r'Vill\s*köpa:\s*([A-Za-zÅÄÖåäö0-9\s\-]+)', clean_body, re.IGNORECASE)
         if vill_kopa_match:
             vill_kopa = vill_kopa_match.group(1).strip()
+            vill_kopa = re.split(r'\s+(?:Chef|Namn)', vill_kopa, flags=re.IGNORECASE)[0].strip()
             vill_kopa = ' '.join(vill_kopa.split())
 
-        # Parsa Chef (slutar vid Namn, Vill, radbrytning eller slut)
-        chef_match = re.search(r'Chef:\s*([A-Za-zÅÄÖåäö\s\-]+?)(?:\s*Namn:|\s*Vill|\s*$|\n|\r)', clean_body, re.IGNORECASE)
+        # Parsa Chef
+        chef_match = re.search(r'Chef:\s*([A-Za-zÅÄÖåäö\s\-]+)', clean_body, re.IGNORECASE)
         if chef_match:
             chef_name = chef_match.group(1).strip().lower()
+            chef_name = re.split(r'\s+(?:Namn|Vill)', chef_name, flags=re.IGNORECASE)[0].strip()
             chef_name = ' '.join(chef_name.split())
             # Hitta matchande chef
             if chef_name in CHEFER:
