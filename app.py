@@ -492,17 +492,17 @@ def webhook():
     if vill_kopa:
         html_content += f"<p><strong>Vill köpa:</strong> {vill_kopa}</p>"
 
-    try:
-        email_result = send_email(CHEF_EMAIL, person_name, html_content)
-        return jsonify({
-            "status": "success",
-            "message": f"Mejl skickat till {CHEF_EMAIL}",
-            "person": person_name,
-            "antal_inkop": len(person_data["inkop"]),
-            "email_id": email_result.get("id")
-        })
-    except Exception as e:
-        return jsonify({"error": f"Kunde inte skicka mejl: {str(e)}"}), 500
+    # Returnera data till Power Automate (som skickar mejlet)
+    return jsonify({
+        "status": "success",
+        "person": person_name,
+        "saldo": person_data["saldo"],
+        "kontobelopp": person_data["kontobelopp"],
+        "antal_inkop": len(person_data["inkop"]),
+        "vill_kopa": vill_kopa,
+        "email_subject": f"Inköpshistorik för {person_name}",
+        "email_body_html": html_content
+    })
 
 
 @app.route("/test/<namn>", methods=["GET"])
