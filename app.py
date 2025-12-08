@@ -352,8 +352,8 @@ def parse_excel_for_person(excel_data, person_name):
         kundref = str(row.iloc[4]) if pd.notna(row.iloc[4]) else ""
 
         # Rensa Kundref från nummer och suffix
-        # Ta bort nummer i början (t.ex. "267 Johan")
-        kundref_clean = re.sub(r'^\d+\s*', '', kundref).strip()
+        # Ta bort prefix: nummer eller ZZ+nummer i början (t.ex. "267 Johan" eller "ZZ123456 Johan")
+        kundref_clean = re.sub(r'^[A-Z]{0,2}\d+\s*', '', kundref).strip()
         # Ta bort suffix: /nnn, korta nummer (3+ siffror), eller ZZ+telefonnummer
         kundref_clean = re.sub(r'[/\s]+\d{3,}.*$', '', kundref_clean).strip()
         kundref_clean = re.sub(r'\s+[A-Z]{0,2}\d{6,}.*$', '', kundref_clean).strip()
