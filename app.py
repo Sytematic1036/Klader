@@ -321,9 +321,19 @@ def parse_excel_for_person(excel_data, person_name):
     """
     Läs Excel-filen och hitta alla inköp för en person.
     excel_data kan vara en filsökväg eller ett BytesIO-objekt.
+
+    Nytt format:
+    - Kolumn E (index 4) = Kundref (personens namn)
+    - Kolumn F (index 5) = ArtNr
+    - Kolumn G (index 6) = Artikelben1 (beskrivning)
+    - Kolumn H (index 7) = Artikelben2 (detaljer)
+    - Kolumn I (index 8) = Kvantitet
+    - Kolumn J (index 9) = Belopp
+    - Kolumn L (index 11) = Fakturadat.
+
     Returnerar dict med personinfo och lista med inköp.
     """
-    df = pd.read_excel(excel_data, header=None)
+    df = pd.read_excel(excel_data, header=0)  # Första raden är rubrik
 
     person_name_upper = person_name.upper().strip()
     search_names = [person_name_upper]
@@ -334,67 +344,49 @@ def parse_excel_for_person(excel_data, person_name):
 
     result = {
         "namn": person_name,
-        "saldo": None,
-        "kontobelopp": None,
+        "total_belopp": 0,
         "inkop": []
     }
 
-    found_person_section = False
-    in_person_section = False
+    total_belopp = 0
 
     for idx, row in df.iterrows():
-        row_values = []
-        for v in row:
-            if pd.isna(v):
-                row_values.append("")
-            elif isinstance(v, pd.Timestamp):
-                row_values.append(v.strftime("%Y-%m-%d %H:%M:%S"))
-            else:
-                row_values.append(str(v))
+        # Hämta Kundref (kolumn E)
+        kundref = str(row.iloc[4]) if pd.notna(row.iloc[4]) else ""
+        kundref_upper = kundref.upper().strip()
 
-        row_text = " ".join(row_values).upper()
-
-        col2_val = row_values[2] if len(row_values) > 2 else ""
-        is_person_header = re.match(r'^\d+\s+[A-ZÅÄÖ]', col2_val)
-
-        if is_person_header:
-            if any(name in col2_val.upper() for name in search_names):
-                found_person_section = True
-                in_person_section = True
-            elif found_person_section:
-                break
-            else:
-                in_person_section = False
+        # Kolla om denna rad matchar personen vi söker
+        if not any(name in kundref_upper for name in search_names):
             continue
 
-        if not in_person_section:
-            continue
+        # Hämta data från raden
+        artikelnr = str(row.iloc[5]) if pd.notna(row.iloc[5]) else None
+        artikelben1 = str(row.iloc[6]) if pd.notna(row.iloc[6]) else ""
+        artikelben2 = str(row.iloc[7]) if pd.notna(row.iloc[7]) else ""
+        kvantitet = int(row.iloc[8]) if pd.notna(row.iloc[8]) else 1
+        belopp = float(row.iloc[9]) if pd.notna(row.iloc[9]) else 0
+        fakturadatum = row.iloc[11] if pd.notna(row.iloc[11]) else None
 
-        if "KONTOBELOPP:" in row_text:
-            for val in row_values:
-                val_upper = val.upper()
-                if "KONTOBELOPP:" in val_upper:
-                    match = re.search(r'Kontobelopp:\s*([\d,\.]+)', val, re.IGNORECASE)
-                    if match:
-                        result["kontobelopp"] = match.group(1)
-                if "SALDO:" in val_upper:
-                    match = re.search(r'Saldo:\s*([\d,\.\-]+)', val, re.IGNORECASE)
-                    if match:
-                        result["saldo"] = match.group(1)
-            continue
+        # Formatera datum
+        if isinstance(fakturadatum, (datetime, pd.Timestamp)):
+            datum_str = fakturadatum.strftime("%Y-%m-%d")
+        else:
+            datum_str = str(fakturadatum) if fakturadatum else None
 
-        if "DATUM" in row_text and "ARTIKELNR" in row_text:
-            continue
+        # Kombinera artikelbeskrivning
+        beskrivning = f"{artikelben1} {artikelben2}".strip()
 
-        col2_raw = row[2] if len(row) > 2 else None
-        if isinstance(col2_raw, (datetime, pd.Timestamp)):
-            inkop = {
-                "datum": col2_raw.strftime("%Y-%m-%d"),
-                "belopp": str(row[5]) if len(row) > 5 and pd.notna(row[5]) else None,
-                "artikel": str(row[7]) if len(row) > 7 and pd.notna(row[7]) else None,
-                "beskrivning": str(row[8]) if len(row) > 8 and pd.notna(row[8]) else None
-            }
-            result["inkop"].append(inkop)
+        inkop = {
+            "datum": datum_str,
+            "artikelnr": artikelnr,
+            "beskrivning": beskrivning,
+            "kvantitet": kvantitet,
+            "belopp": round(belopp, 2)
+        }
+        result["inkop"].append(inkop)
+        total_belopp += belopp
+
+    result["total_belopp"] = round(total_belopp, 2)
 
     return result
 
@@ -404,23 +396,24 @@ def create_email_html(person_data):
     html = f"""
     <h2>Inköpshistorik för {person_data['namn']}</h2>
 
-    <p><strong>Kontobelopp:</strong> {person_data['kontobelopp'] or 'Ej angivet'} kr</p>
-    <p><strong>Saldo:</strong> {person_data['saldo'] or 'Ej angivet'} kr</p>
+    <p><strong>Totalt belopp:</strong> {person_data['total_belopp']} kr</p>
+    <p><strong>Antal inköp:</strong> {len(person_data['inkop'])}</p>
 
     <h3>Inköp:</h3>
     """
 
     if person_data['inkop']:
         html += "<table border='1' cellpadding='8' cellspacing='0'>"
-        html += "<tr><th>Datum</th><th>Artikel</th><th>Beskrivning</th><th>Belopp</th></tr>"
+        html += "<tr><th>Datum</th><th>Artikelnr</th><th>Beskrivning</th><th>Antal</th><th>Belopp</th></tr>"
 
         for inkop in person_data['inkop']:
             html += f"""
             <tr>
-                <td>{inkop['datum']}</td>
-                <td>{inkop['artikel'] or '-'}</td>
+                <td>{inkop['datum'] or '-'}</td>
+                <td>{inkop['artikelnr'] or '-'}</td>
                 <td>{inkop['beskrivning'] or '-'}</td>
-                <td>{inkop['belopp'] or '-'} kr</td>
+                <td>{inkop['kvantitet']}</td>
+                <td>{inkop['belopp']} kr</td>
             </tr>
             """
         html += "</table>"
@@ -510,7 +503,7 @@ def webhook():
 
     person_data = parse_excel_for_person(excel_data, person_name)
 
-    if not person_data["inkop"] and not person_data["saldo"]:
+    if not person_data["inkop"]:
         return jsonify({"error": f"Hittade ingen data för {person_name}"}), 404
 
     html_content = create_email_html(person_data)
@@ -523,8 +516,7 @@ def webhook():
     return jsonify({
         "status": "success",
         "person": person_name,
-        "saldo": person_data["saldo"],
-        "kontobelopp": person_data["kontobelopp"],
+        "total_belopp": person_data["total_belopp"],
         "antal_inkop": len(person_data["inkop"]),
         "vill_kopa": vill_kopa,
         "chef_email": chef_email,
