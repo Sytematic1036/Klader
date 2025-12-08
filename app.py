@@ -208,7 +208,7 @@ def logout():
 @login_required
 def dashboard():
     """Dashboard för inloggade användare."""
-    return render_template("dashboard.html", user=session.get('user'), chef_email=CHEF_EMAIL)
+    return render_template("dashboard.html", user=session.get('user'), chef_email=DEFAULT_CHEF_EMAIL)
 
 
 # ==================== FILHANTERING ====================
