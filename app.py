@@ -353,7 +353,12 @@ def parse_excel_for_person(excel_data, person_name):
     for idx, row in df.iterrows():
         # Hämta Kundref (kolumn E)
         kundref = str(row.iloc[4]) if pd.notna(row.iloc[4]) else ""
-        kundref_upper = kundref.upper().strip()
+
+        # Rensa bort suffix som /300, telefonnummer etc från Kundref
+        # Ta bort: /nnn, korta nummer (3+ siffror), eller ZZ+telefonnummer
+        kundref_clean = re.sub(r'[/\s]+\d{3,}.*$', '', kundref).strip()
+        kundref_clean = re.sub(r'\s+[A-Z]{0,2}\d{6,}.*$', '', kundref_clean).strip()
+        kundref_upper = kundref_clean.upper()
 
         # Kolla om denna rad matchar personen vi söker
         if not any(name in kundref_upper for name in search_names):
