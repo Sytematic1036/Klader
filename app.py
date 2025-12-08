@@ -336,11 +336,8 @@ def parse_excel_for_person(excel_data, person_name):
     df = pd.read_excel(excel_data, header=0)  # Första raden är rubrik
 
     person_name_upper = person_name.upper().strip()
-    search_names = [person_name_upper]
-    name_parts = person_name_upper.split()
-    if len(name_parts) >= 2:
-        search_names.append(name_parts[0])
-        search_names.append(name_parts[-1])
+    # Kräv matchning på hela namnet (både för- och efternamn)
+    search_name = person_name_upper
 
     result = {
         "namn": person_name,
@@ -354,14 +351,16 @@ def parse_excel_for_person(excel_data, person_name):
         # Hämta Kundref (kolumn E)
         kundref = str(row.iloc[4]) if pd.notna(row.iloc[4]) else ""
 
-        # Rensa bort suffix som /300, telefonnummer etc från Kundref
-        # Ta bort: /nnn, korta nummer (3+ siffror), eller ZZ+telefonnummer
-        kundref_clean = re.sub(r'[/\s]+\d{3,}.*$', '', kundref).strip()
+        # Rensa Kundref från nummer och suffix
+        # Ta bort nummer i början (t.ex. "267 Johan")
+        kundref_clean = re.sub(r'^\d+\s*', '', kundref).strip()
+        # Ta bort suffix: /nnn, korta nummer (3+ siffror), eller ZZ+telefonnummer
+        kundref_clean = re.sub(r'[/\s]+\d{3,}.*$', '', kundref_clean).strip()
         kundref_clean = re.sub(r'\s+[A-Z]{0,2}\d{6,}.*$', '', kundref_clean).strip()
         kundref_upper = kundref_clean.upper()
 
-        # Kolla om denna rad matchar personen vi söker
-        if not any(name in kundref_upper for name in search_names):
+        # Kolla om denna rad matchar personen vi söker (hela namnet måste finnas)
+        if search_name not in kundref_upper:
             continue
 
         # Hämta data från raden
