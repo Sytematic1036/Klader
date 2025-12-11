@@ -284,9 +284,19 @@
                         </td>
                         <td>{{ req.decided_at.strftime('%Y-%m-%d %H:%M') if req.decided_at else '-' }}</td>
                         <td>
-                            <form action="/requisition/{{ req.id }}/delete" method="POST" style="display: inline;" onsubmit="return confirm('Radera rekvisition {{ req.code }}?');">
-                                <button type="submit" class="btn btn-danger btn-sm">Radera</button>
-                            </form>
+                            <div style="display: flex; gap: 5px; align-items: center;">
+                                <form action="/requisition/{{ req.id }}/change-status" method="POST" style="display: flex; gap: 5px;">
+                                    <select name="new_status" class="btn btn-sm" style="padding: 5px 8px; border: 1px solid #ccc; border-radius: 5px; font-size: 12px;">
+                                        <option value="Väntar" {% if req.status == 'Väntar' %}selected{% endif %}>Väntar</option>
+                                        <option value="Godkänt" {% if req.status == 'Godkänt' %}selected{% endif %}>Godkänt</option>
+                                        <option value="Ej godkänt" {% if req.status == 'Ej godkänt' %}selected{% endif %}>Ej godkänt</option>
+                                    </select>
+                                    <button type="submit" class="btn btn-secondary btn-sm">Ändra</button>
+                                </form>
+                                <form action="/requisition/{{ req.id }}/delete" method="POST" style="display: inline;" onsubmit="return confirm('Radera rekvisition {{ req.code }}?');">
+                                    <button type="submit" class="btn btn-danger btn-sm">Radera</button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}

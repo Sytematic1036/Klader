@@ -841,6 +841,24 @@ def requisitions_page():
                          requisitions=requisitions)
 
 
+@app.route("/requisition/<int:req_id>/change-status", methods=["POST"])
+@login_required
+def change_requisition_status(req_id):
+    """Ändra status på en rekvisition."""
+    requisition = Requisition.query.get(req_id)
+    if requisition:
+        new_status = request.form.get('new_status')
+        if new_status in ['Väntar', 'Godkänt', 'Ej godkänt']:
+            requisition.status = new_status
+            if new_status in ['Godkänt', 'Ej godkänt']:
+                requisition.decided_at = datetime.utcnow()
+            else:
+                requisition.decided_at = None
+            db.session.commit()
+            return redirect(url_for('requisitions_page', message=f"Status ändrad till {new_status}", type="success"))
+    return redirect(url_for('requisitions_page', message="Kunde inte ändra status", type="error"))
+
+
 @app.route("/requisition/<int:req_id>/delete", methods=["POST"])
 @login_required
 def delete_requisition(req_id):
