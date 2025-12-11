@@ -710,57 +710,14 @@ DECISION_RESULT_HTML = """
             padding: 40px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.1);
             text-align: center;
-            max-width: 600px;
+            max-width: 500px;
             width: 100%;
         }
         .icon { font-size: 60px; margin-bottom: 20px; }
         .success .icon { color: #28a745; }
         .rejected .icon { color: #dc3545; }
-        .warning .icon { color: #ffc107; }
         .error .icon { color: #6c757d; }
         h1 { color: #333; margin-bottom: 15px; }
-        p { color: #666; line-height: 1.6; }
-        .details { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 20px; text-align: left; }
-        .details strong { color: #333; }
-        .copy-section {
-            margin-top: 25px;
-            text-align: left;
-        }
-        .copy-section h3 {
-            color: #333;
-            margin-bottom: 10px;
-            font-size: 16px;
-        }
-        .copy-box {
-            background: #f8f9fa;
-            border: 2px solid #dee2e6;
-            border-radius: 8px;
-            padding: 15px;
-            font-size: 14px;
-            line-height: 1.6;
-            color: #333;
-            position: relative;
-        }
-        .copy-btn {
-            display: block;
-            width: 100%;
-            margin-top: 10px;
-            padding: 12px 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 14px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-        .copy-btn:hover {
-            transform: translateY(-2px);
-        }
-        .copy-btn.copied {
-            background: #28a745;
-        }
         .close-hint {
             margin-top: 25px;
             padding: 12px 20px;
@@ -769,63 +726,18 @@ DECISION_RESULT_HTML = """
             color: #495057;
             font-size: 14px;
         }
-        .code-display {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 18px;
-            font-weight: bold;
-            letter-spacing: 2px;
-            color: #667eea;
-        }
     </style>
 </head>
 <body>
     <div class="container {{ status_class }}">
         <div class="icon">
-            {% if status_class == 'success' %}✓{% elif status_class == 'rejected' %}✗{% elif status_class == 'warning' %}⚠{% else %}?{% endif %}
+            {% if status_class == 'success' %}✓{% elif status_class == 'rejected' %}✗{% else %}?{% endif %}
         </div>
         <h1>{{ title }}</h1>
-        <p>{{ message }}</p>
-        {% if requisition %}
-        <div class="details">
-            <p><strong>Rekvisitionsnummer:</strong> <span class="code-display">{{ requisition.code }}</span></p>
-            <p><strong>Anställd:</strong> {{ requisition.employee_name }}</p>
-            <p><strong>Vill köpa:</strong> {{ requisition.vill_kopa or 'Ej angivet' }}</p>
-            <p><strong>Datum:</strong> {{ requisition.request_date }}</p>
-        </div>
-
-        <div class="copy-section">
-            <h3>Kopiera och vidarebefordra till {{ requisition.employee_name }}:</h3>
-            <div class="copy-box" id="copyText">Hej!
-
-Ditt inköp är godkänt. Visa detta rekvisitionsnummer för personalen på Ahlsell och be dem lägga in det som referens på ordern.
-
-Rekvisitionsnummer: {{ requisition.code }}
-
-Mvh
-{{ requisition.chef_name or 'Din chef' }}</div>
-            <button class="copy-btn" onclick="copyToClipboard()">Kopiera text</button>
-            <p style="font-size: 12px; color: #666; margin-top: 8px; text-align: center;">Ändra till "ej godkänt" om du nekar inköpet.</p>
-        </div>
-        {% endif %}
         <div class="close-hint">
             Du kan nu stänga denna flik och gå tillbaka till mejlet.
         </div>
     </div>
-
-    <script>
-        function copyToClipboard() {
-            var text = document.getElementById('copyText').innerText;
-            navigator.clipboard.writeText(text).then(function() {
-                var btn = document.querySelector('.copy-btn');
-                btn.textContent = 'Kopierat!';
-                btn.classList.add('copied');
-                setTimeout(function() {
-                    btn.textContent = 'Kopiera text';
-                    btn.classList.remove('copied');
-                }, 2000);
-            });
-        }
-    </script>
 </body>
 </html>
 """
