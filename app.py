@@ -540,9 +540,10 @@ def webhook():
         chef_match = re.search(r'Chef:\s*([A-Za-zÅÄÖåäö\s\-]+)', clean_body, re.IGNORECASE)
         if chef_match:
             chef_name_parsed = chef_match.group(1).strip()
+            # Ta bort eventuella följande nyckelord (Namn, Vill)
+            chef_name_parsed = re.split(r'\s+(?:Namn|Vill)', chef_name_parsed, flags=re.IGNORECASE)[0].strip()
+            chef_name_parsed = ' '.join(chef_name_parsed.split())
             chef_name_lower = chef_name_parsed.lower()
-            chef_name_lower = re.split(r'\s+(?:Namn|Vill)', chef_name_lower, flags=re.IGNORECASE)[0].strip()
-            chef_name_lower = ' '.join(chef_name_lower.split())
             # Hitta matchande chef
             if chef_name_lower in CHEFER:
                 chef_email = CHEFER[chef_name_lower]
