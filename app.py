@@ -1,9 +1,10 @@
 import os
 import re
 import io
+import secrets
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import Flask, request, jsonify, render_template, redirect, url_for, session, flash
+from flask import Flask, request, jsonify, render_template, render_template_string, redirect, url_for, session, flash
 from werkzeug.utils import secure_filename
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -48,6 +49,11 @@ CHEFER = {
 DEFAULT_CHEF_EMAIL = "marcus.hager@edsvikensel.se"
 ALLOWED_EMAILS = [e.strip().lower() for e in os.getenv("ALLOWED_EMAILS", "").split(",") if e.strip()]
 
+# Rekvisitionsnummer-konfiguration
+CODE_LENGTH = 8
+# Alfabet utan lättförväxlade tecken (0/O, 1/I osv)
+CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
 
 
 # ==================== DATABAS-MODELLER ====================
@@ -85,9 +91,56 @@ class ExcelFile(db.Model):
     uploaded_by = db.Column(db.String(120))
 
 
+class Requisition(db.Model):
+    """Lagrar rekvisitioner med status för godkännande."""
+    __tablename__ = 'requisitions'
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(8), unique=True, nullable=False, index=True)
+    employee_name = db.Column(db.String(255), nullable=False)
+    chef_name = db.Column(db.String(255))
+    chef_email = db.Column(db.String(255))
+    vill_kopa = db.Column(db.Text)
+    status = db.Column(db.String(20), default='Väntar')  # Väntar, Godkänt, Ej godkänt
+    request_date = db.Column(db.Date, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    decided_at = db.Column(db.DateTime)  # När chefen fattade beslut
+
+
 # Skapa tabeller
 with app.app_context():
     db.create_all()
+
+
+# ==================== REKVISITIONSNUMMER ====================
+
+def generate_requisition_code():
+    """Generera ett unikt 8-teckens rekvisitionsnummer."""
+    while True:
+        code = ''.join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LENGTH))
+        # Kontrollera att koden inte redan finns
+        existing = Requisition.query.filter_by(code=code).first()
+        if not existing:
+            return code
+
+
+def create_requisition(employee_name, chef_name=None, chef_email=None, vill_kopa=None):
+    """Skapa en ny rekvisition och returnera rekvisitionsnumret."""
+    code = generate_requisition_code()
+
+    requisition = Requisition(
+        code=code,
+        employee_name=employee_name,
+        chef_name=chef_name,
+        chef_email=chef_email,
+        vill_kopa=vill_kopa,
+        status='Väntar',
+        request_date=datetime.utcnow().date()
+    )
+
+    db.session.add(requisition)
+    db.session.commit()
+
+    return code
 
 
 # ==================== AUTH DECORATORS ====================
@@ -460,6 +513,7 @@ def webhook():
     person_name = None
     vill_kopa = ""
     chef_email = DEFAULT_CHEF_EMAIL
+    chef_name_parsed = ""
 
     if "namn" in data and data["namn"]:
         person_name = data["namn"].strip()
@@ -485,12 +539,13 @@ def webhook():
         # Parsa Chef
         chef_match = re.search(r'Chef:\s*([A-Za-zÅÄÖåäö\s\-]+)', clean_body, re.IGNORECASE)
         if chef_match:
-            chef_name = chef_match.group(1).strip().lower()
-            chef_name = re.split(r'\s+(?:Namn|Vill)', chef_name, flags=re.IGNORECASE)[0].strip()
-            chef_name = ' '.join(chef_name.split())
+            chef_name_parsed = chef_match.group(1).strip()
+            chef_name_lower = chef_name_parsed.lower()
+            chef_name_lower = re.split(r'\s+(?:Namn|Vill)', chef_name_lower, flags=re.IGNORECASE)[0].strip()
+            chef_name_lower = ' '.join(chef_name_lower.split())
             # Hitta matchande chef
-            if chef_name in CHEFER:
-                chef_email = CHEFER[chef_name]
+            if chef_name_lower in CHEFER:
+                chef_email = CHEFER[chef_name_lower]
 
     if not person_name:
         return jsonify({
@@ -510,11 +565,35 @@ def webhook():
     if not person_data["inkop"]:
         return jsonify({"error": f"Hittade ingen data för {person_name}"}), 404
 
+    # Skapa rekvisition och få rekvisitionsnummer
+    requisition_code = create_requisition(
+        employee_name=person_name,
+        chef_name=chef_name_parsed,
+        chef_email=chef_email,
+        vill_kopa=vill_kopa
+    )
+
+    # Skapa URL:er för godkännande/avslag (knappar i mejlet)
+    base_url = os.getenv("BASE_URL", "https://klader.onrender.com")
+    approve_url = f"{base_url}/requisition/{requisition_code}/approve"
+    reject_url = f"{base_url}/requisition/{requisition_code}/reject"
+
     html_content = create_email_html(person_data)
 
-    # Lägg till "Vill köpa" överst i mejlet
-    if vill_kopa:
-        html_content = f"<p><strong>Vill köpa:</strong> {vill_kopa}</p><br>" + html_content
+    # Lägg till rekvisitionsnummer och godkännandeknappar överst i mejlet
+    approval_buttons_html = f"""
+    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 2px solid #667eea;">
+        <h3 style="margin-top: 0; color: #333;">Rekvisitionsnummer: <span style="color: #667eea; font-family: monospace;">{requisition_code}</span></h3>
+        <p><strong>Vill köpa:</strong> {vill_kopa if vill_kopa else 'Ej angivet'}</p>
+        <p style="margin-bottom: 15px;">Klicka på en knapp nedan för att godkänna eller avslå (öppnas i ny flik):</p>
+        <div style="display: inline-block;">
+            <a href="{approve_url}" target="_blank" style="display: inline-block; background: #28a745; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-right: 10px;">Godkänn</a>
+            <a href="{reject_url}" target="_blank" style="display: inline-block; background: #dc3545; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Avslå</a>
+        </div>
+    </div>
+    """
+
+    html_content = approval_buttons_html + html_content
 
     # Returnera data till Power Automate (som skickar mejlet)
     return jsonify({
@@ -524,7 +603,8 @@ def webhook():
         "antal_inkop": len(person_data["inkop"]),
         "vill_kopa": vill_kopa,
         "chef_email": chef_email,
-        "email_subject": f"Inköpshistorik för {person_name}",
+        "requisition_code": requisition_code,
+        "email_subject": f"Inköpshistorik för {person_name} - Rekv: {requisition_code}",
         "email_body_html": html_content
     })
 
@@ -538,6 +618,164 @@ def test_person(namn):
 
     person_data = parse_excel_for_person(excel_data, namn)
     return jsonify(person_data)
+
+
+# ==================== REKVISITIONS-ENDPOINTS ====================
+
+@app.route("/requisition/<code>/approve", methods=["GET"])
+def approve_requisition(code):
+    """Godkänn en rekvisition via länk i mejlet."""
+    requisition = Requisition.query.filter_by(code=code.upper()).first()
+
+    if not requisition:
+        return render_template_string(DECISION_RESULT_HTML,
+            title="Rekvisition hittades inte",
+            message=f"Rekvisitionsnummer {code} finns inte i systemet.",
+            status_class="error")
+
+    if requisition.status != 'Väntar':
+        return render_template_string(DECISION_RESULT_HTML,
+            title="Redan hanterad",
+            message=f"Denna rekvisition har redan status: {requisition.status}",
+            status_class="warning")
+
+    requisition.status = 'Godkänt'
+    requisition.decided_at = datetime.utcnow()
+    db.session.commit()
+
+    return render_template_string(DECISION_RESULT_HTML,
+        title="Rekvisition godkänd!",
+        message=f"Rekvisition {code} för {requisition.employee_name} har godkänts.",
+        status_class="success",
+        requisition=requisition)
+
+
+@app.route("/requisition/<code>/reject", methods=["GET"])
+def reject_requisition(code):
+    """Avslå en rekvisition via länk i mejlet."""
+    requisition = Requisition.query.filter_by(code=code.upper()).first()
+
+    if not requisition:
+        return render_template_string(DECISION_RESULT_HTML,
+            title="Rekvisition hittades inte",
+            message=f"Rekvisitionsnummer {code} finns inte i systemet.",
+            status_class="error")
+
+    if requisition.status != 'Väntar':
+        return render_template_string(DECISION_RESULT_HTML,
+            title="Redan hanterad",
+            message=f"Denna rekvisition har redan status: {requisition.status}",
+            status_class="warning")
+
+    requisition.status = 'Ej godkänt'
+    requisition.decided_at = datetime.utcnow()
+    db.session.commit()
+
+    return render_template_string(DECISION_RESULT_HTML,
+        title="Rekvisition avslagen",
+        message=f"Rekvisition {code} för {requisition.employee_name} har avslagits.",
+        status_class="rejected",
+        requisition=requisition)
+
+
+# HTML-mall för beslutssida (visas när chef klickar på knapp)
+DECISION_RESULT_HTML = """
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - Klädsystem</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 500px;
+        }
+        .icon { font-size: 60px; margin-bottom: 20px; }
+        .success .icon { color: #28a745; }
+        .rejected .icon { color: #dc3545; }
+        .warning .icon { color: #ffc107; }
+        .error .icon { color: #6c757d; }
+        h1 { color: #333; margin-bottom: 15px; }
+        p { color: #666; line-height: 1.6; }
+        .details { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 20px; text-align: left; }
+        .details strong { color: #333; }
+        .close-hint {
+            margin-top: 25px;
+            padding: 12px 20px;
+            background: #e9ecef;
+            border-radius: 8px;
+            color: #495057;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container {{ status_class }}">
+        <div class="icon">
+            {% if status_class == 'success' %}✓{% elif status_class == 'rejected' %}✗{% elif status_class == 'warning' %}⚠{% else %}?{% endif %}
+        </div>
+        <h1>{{ title }}</h1>
+        <p>{{ message }}</p>
+        {% if requisition %}
+        <div class="details">
+            <p><strong>Rekvisitionsnummer:</strong> {{ requisition.code }}</p>
+            <p><strong>Anställd:</strong> {{ requisition.employee_name }}</p>
+            <p><strong>Vill köpa:</strong> {{ requisition.vill_kopa or 'Ej angivet' }}</p>
+            <p><strong>Datum:</strong> {{ requisition.request_date }}</p>
+        </div>
+        {% endif %}
+        <div class="close-hint">
+            Du kan nu stänga denna flik och gå tillbaka till mejlet.
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+
+@app.route("/requisitions")
+@login_required
+def requisitions_page():
+    """Sida för att visa alla rekvisitioner."""
+    requisitions = Requisition.query.order_by(Requisition.created_at.desc()).all()
+    return render_template("requisitions.html",
+                         user=session.get('user'),
+                         requisitions=requisitions)
+
+
+@app.route("/requisition/<int:req_id>/delete", methods=["POST"])
+@login_required
+def delete_requisition(req_id):
+    """Radera en rekvisition."""
+    requisition = Requisition.query.get(req_id)
+    if requisition:
+        db.session.delete(requisition)
+        db.session.commit()
+        return redirect(url_for('requisitions_page', message="Rekvisition raderad", type="success"))
+    return redirect(url_for('requisitions_page', message="Rekvisition hittades inte", type="error"))
+
+
+@app.route("/requisitions/delete-all", methods=["POST"])
+@login_required
+def delete_all_requisitions():
+    """Radera alla rekvisitioner (för testning)."""
+    Requisition.query.delete()
+    db.session.commit()
+    return redirect(url_for('requisitions_page', message="Alla rekvisitioner raderade", type="success"))
 
 
 if __name__ == "__main__":
