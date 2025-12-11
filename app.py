@@ -587,12 +587,13 @@ def webhook():
         <p style="margin: 0; color: #333; font-size: 15px; line-height: 1.6;">
             Hej!<br><br>
             Ditt inköp är godkänt. Visa detta rekvisitionsnummer för personalen på Ahlsell och be dem lägga in det som referens på ordern.<br><br>
-            <strong style="font-family: 'Courier New', Courier, monospace; font-size: 20px; letter-spacing: 2px; color: #667eea;">Rekvisitionsnummer: {requisition_code}</strong><br><br>
+            <strong style="font-family: 'Courier New', Courier, monospace; font-size: 20px; letter-spacing: 2px; color: #667eea;">Rekvisitionsnummer: {requisition_code}</strong><br>
+            <strong>Godkänt inköp: {vill_kopa if vill_kopa else 'Ej angivet'}</strong><br><br>
             Mvh<br>
             {chef_name_parsed if chef_name_parsed else 'Din chef'}
         </p>
         <p style="margin-top: 15px; margin-bottom: 0; font-size: 12px; color: #666; font-style: italic;">
-            (Vidarebefordra detta mejl till den anställde. Ändra "godkänt" till "ej godkänt" om du nekar.)
+            (Tryck på någon av knapparna "Godkänn" eller "Avslå" nedan. Vidarebefordra detta mejl till den anställde. Ändra "godkänt" till "ej godkänt" om du nekar.)
         </p>
     </div>
     """
