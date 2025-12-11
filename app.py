@@ -649,16 +649,8 @@ def approve_requisition(code):
     if not requisition:
         return render_template_string(DECISION_RESULT_HTML,
             title="Rekvisition hittades inte",
-            message=f"Rekvisitionsnummer {code} finns inte i systemet.",
+            message="",
             status_class="error")
-
-    # Kolla om redan hanterad (status innehåller 'Godkänt' eller 'godkänt')
-    current_status = (requisition.status or '').lower()
-    if 'godkänt' in current_status:
-        return render_template_string(DECISION_RESULT_HTML,
-            title="Redan hanterad",
-            message=f"Denna rekvisition har redan status: {requisition.status}",
-            status_class="warning")
 
     requisition.status = 'Godkänt'
     requisition.decided_at = datetime.utcnow()
@@ -679,16 +671,8 @@ def reject_requisition(code):
     if not requisition:
         return render_template_string(DECISION_RESULT_HTML,
             title="Rekvisition hittades inte",
-            message=f"Rekvisitionsnummer {code} finns inte i systemet.",
+            message="",
             status_class="error")
-
-    # Kolla om redan hanterad (status innehåller 'Godkänt' eller 'godkänt')
-    current_status = (requisition.status or '').lower()
-    if 'godkänt' in current_status:
-        return render_template_string(DECISION_RESULT_HTML,
-            title="Redan hanterad",
-            message=f"Denna rekvisition har redan status: {requisition.status}",
-            status_class="warning")
 
     requisition.status = 'Ej godkänt'
     requisition.decided_at = datetime.utcnow()
