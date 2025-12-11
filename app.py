@@ -652,21 +652,13 @@ def approve_requisition(code):
             message=f"Rekvisitionsnummer {code} finns inte i systemet.",
             status_class="error")
 
-    # Kolla om redan hanterad (inte 'Väntar')
-    current_status = (requisition.status or '').strip()
-    if current_status and current_status != 'Väntar':
-        return render_template_string(DECISION_RESULT_HTML,
-            title="Redan hanterad",
-            message=f"Denna rekvisition har redan status: {requisition.status}",
-            status_class="warning")
-
     requisition.status = 'Godkänt'
     requisition.decided_at = datetime.utcnow()
     db.session.commit()
 
     return render_template_string(DECISION_RESULT_HTML,
-        title="Tack!",
-        message="Svar registrerat i databasen.",
+        title="Beslutet är nu registrerat",
+        message="",
         status_class="success",
         requisition=requisition)
 
@@ -682,21 +674,13 @@ def reject_requisition(code):
             message=f"Rekvisitionsnummer {code} finns inte i systemet.",
             status_class="error")
 
-    # Kolla om redan hanterad (inte 'Väntar')
-    current_status = (requisition.status or '').strip()
-    if current_status and current_status != 'Väntar':
-        return render_template_string(DECISION_RESULT_HTML,
-            title="Redan hanterad",
-            message=f"Denna rekvisition har redan status: {requisition.status}",
-            status_class="warning")
-
     requisition.status = 'Ej godkänt'
     requisition.decided_at = datetime.utcnow()
     db.session.commit()
 
     return render_template_string(DECISION_RESULT_HTML,
-        title="Tack!",
-        message="Svar registrerat i databasen.",
+        title="Beslutet är nu registrerat",
+        message="",
         status_class="rejected",
         requisition=requisition)
 
