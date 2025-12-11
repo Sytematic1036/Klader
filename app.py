@@ -580,13 +580,29 @@ def webhook():
 
     html_content = create_email_html(person_data)
 
-    # Lägg till rekvisitionsnummer och godkännandeknappar överst i mejlet
+    # Text som chefen kan vidarebefordra till den anställde
+    forward_text_html = f"""
+    <div style="background: #e8f5e9; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 2px solid #28a745;">
+        <p style="margin: 0; color: #333; font-size: 15px; line-height: 1.6;">
+            Hej!<br><br>
+            Ditt inköp är godkänt. Visa detta rekvisitionsnummer för personalen på Ahlsell och be dem lägga in det som referens på ordern.<br><br>
+            <strong style="font-family: 'Courier New', Courier, monospace; font-size: 20px; letter-spacing: 2px; color: #667eea;">Rekvisitionsnummer: {requisition_code}</strong><br><br>
+            Mvh<br>
+            {chef_name_parsed if chef_name_parsed else 'Din chef'}
+        </p>
+        <p style="margin-top: 15px; margin-bottom: 0; font-size: 12px; color: #666; font-style: italic;">
+            (Vidarebefordra detta mejl till den anställde. Ändra "godkänt" till "ej godkänt" om du nekar.)
+        </p>
+    </div>
+    """
+
+    # Lägg till rekvisitionsnummer och godkännandeknappar
     approval_buttons_html = f"""
     <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 2px solid #667eea;">
         <p style="margin-top: 0; color: #333; font-size: 16px;">Rekvisitionsnummer:</p>
         <p style="color: #667eea; font-family: 'Courier New', Courier, monospace; font-size: 28px; font-weight: bold; letter-spacing: 3px; margin: 10px 0 15px 0;">{requisition_code}</p>
         <p><strong>Vill köpa:</strong> {vill_kopa if vill_kopa else 'Ej angivet'}</p>
-        <p style="margin-bottom: 15px;">Klicka på en knapp nedan för att godkänna eller avslå (öppnas i ny flik):</p>
+        <p style="margin-bottom: 15px;">Klicka på en knapp nedan för att registrera ditt beslut (öppnas i ny flik):</p>
         <div style="display: inline-block;">
             <a href="{approve_url}" target="_blank" style="display: inline-block; background: #28a745; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-right: 10px;">Godkänn</a>
             <a href="{reject_url}" target="_blank" style="display: inline-block; background: #dc3545; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">Avslå</a>
@@ -594,7 +610,7 @@ def webhook():
     </div>
     """
 
-    html_content = approval_buttons_html + html_content
+    html_content = forward_text_html + approval_buttons_html + html_content
 
     # Returnera data till Power Automate (som skickar mejlet)
     return jsonify({
