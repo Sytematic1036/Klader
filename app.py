@@ -598,12 +598,10 @@ def webhook():
     </div>
     """
 
-    # Lägg till rekvisitionsnummer och godkännandeknappar
+    # Lägg till godkännandeknappar
     approval_buttons_html = f"""
     <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 2px solid #667eea;">
-        <p style="margin-top: 0; color: #333; font-size: 16px;">Rekvisitionsnummer:</p>
-        <p style="color: #667eea; font-family: 'Courier New', Courier, monospace; font-size: 28px; font-weight: bold; letter-spacing: 3px; margin: 10px 0 15px 0;">{requisition_code}</p>
-        <p><strong>Vill köpa:</strong> {vill_kopa if vill_kopa else 'Ej angivet'}</p>
+        <p style="margin-top: 0; margin-bottom: 15px; font-size: 36px; color: #333;"><strong>Vill köpa:</strong> {vill_kopa if vill_kopa else 'Ej angivet'}</p>
         <p style="margin-bottom: 15px;">Klicka på en knapp nedan för att registrera ditt beslut (öppnas i ny flik):</p>
         <div style="display: inline-block;">
             <a href="{approve_url}" target="_blank" style="display: inline-block; background: #28a745; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-right: 10px;">Godkänn</a>
