@@ -588,7 +588,8 @@ def webhook():
             Hej!<br><br>
             Ditt inköp är godkänt. Visa detta rekvisitionsnummer för personalen på Ahlsell och be dem lägga in det som referens på ordern.<br><br>
             <strong style="font-family: 'Courier New', Courier, monospace; font-size: 20px; letter-spacing: 2px; color: #667eea;">Rekvisitionsnummer: {requisition_code}</strong><br>
-            <strong>Godkänt inköp från sortilogen: {vill_kopa if vill_kopa else 'Ej angivet'}</strong><br><br>
+            <strong>Godkänt inköp från sortilogen: {vill_kopa if vill_kopa else 'Ej angivet'}</strong><br>
+            Köp på vårt kundnummer 4613220<br><br>
             Mvh<br>
             {chef_name_parsed if chef_name_parsed else 'Din chef'}
         </p>
