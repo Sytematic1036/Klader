@@ -593,9 +593,6 @@ def webhook():
             Mvh<br>
             {chef_name_parsed if chef_name_parsed else 'Din chef'}
         </p>
-        <p style="margin-top: 15px; margin-bottom: 0; font-size: 12px; color: #666; font-style: italic;">
-            (Tryck på någon av knapparna "Godkänn" eller "Avslå" nedan. Vidarebefordra detta mejl till den anställde. Ändra "godkänt" till "ej godkänt" om du nekar.)
-        </p>
     </div>
     """
 
