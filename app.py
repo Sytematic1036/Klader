@@ -586,7 +586,7 @@ def webhook():
     <div style="background: #e8f5e9; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 2px solid #28a745;">
         <p style="margin: 0; color: #333; font-size: 15px; line-height: 1.6;">
             Hej!<br><br>
-            Ditt inköp är godkänt. Visa detta rekvisitionsnummer för personalen på Ahlsell och be dem lägga in det som referens på ordern.<br><br>
+            Ditt inköp är godkänt. Ge rekvisitionsnummer och ditt enhetsnummer till personalen på Ahlsell.<br><br>
             <strong style="font-family: 'Courier New', Courier, monospace; font-size: 20px; letter-spacing: 2px; color: #667eea;">Rekvisitionsnummer: {requisition_code}</strong><br>
             <strong>Godkänt inköp från sortilogen: {vill_kopa if vill_kopa else 'Ej angivet'}</strong><br>
             Köp på vårt kundnummer 4613220<br><br>
