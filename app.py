@@ -434,7 +434,7 @@ def parse_excel_for_person(excel_data, person_name):
         artikelben2 = str(row.iloc[7]) if pd.notna(row.iloc[7]) else ""
         kvantitet = int(row.iloc[8]) if pd.notna(row.iloc[8]) else 1
         belopp = float(row.iloc[9]) if pd.notna(row.iloc[9]) else 0
-        fakturadatum = row.iloc[11] if pd.notna(row.iloc[11]) else None
+        fakturadatum = row.iloc[10] if pd.notna(row.iloc[10]) else None  # Kolumn 10 = Fakturadat.
 
         # Formatera datum
         if isinstance(fakturadatum, (datetime, pd.Timestamp)):
@@ -454,6 +454,9 @@ def parse_excel_for_person(excel_data, person_name):
         }
         result["inkop"].append(inkop)
         total_belopp += belopp
+
+    # Sortera inköpen i fallande datumordning (nyast först)
+    result["inkop"].sort(key=lambda x: x["datum"] or "", reverse=True)
 
     result["total_belopp"] = round(total_belopp, 2)
 
