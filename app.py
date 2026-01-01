@@ -578,10 +578,7 @@ def webhook():
 
     person_data = parse_excel_for_person(excel_data, person_name)
 
-    if not person_data["inkop"]:
-        return jsonify({"error": f"Hittade ingen data för {person_name}"}), 404
-
-    # Skapa rekvisition och få rekvisitionsnummer
+    # Skapa rekvisition och få rekvisitionsnummer (även om inga inköp hittades)
     requisition_code = create_requisition(
         employee_name=person_name,
         chef_name=chef_name_parsed,
