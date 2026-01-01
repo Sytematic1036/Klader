@@ -8,6 +8,8 @@ from flask import Flask, request, jsonify, render_template, render_template_stri
 from werkzeug.utils import secure_filename
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
 import pandas as pd
 import resend
@@ -16,6 +18,14 @@ import resend
 load_dotenv()
 
 app = Flask(__name__)
+
+# Rate limiting - skydda mot brute force-attacker
+limiter = Limiter(
+    key_func=get_remote_address,
+    app=app,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://",
+)
 
 # Konfiguration
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
@@ -182,6 +192,7 @@ def index():
 
 
 @app.route("/login", methods=["GET", "POST"])
+@limiter.limit("5 per minute")  # Max 5 inloggningsförsök per minut per IP
 def login():
     """Login-sida."""
     error = None
@@ -214,6 +225,7 @@ def login():
 
 
 @app.route("/register", methods=["GET", "POST"])
+@limiter.limit("3 per minute")  # Max 3 registreringsförsök per minut per IP
 def register():
     """Registrerings-sida."""
     error = None
