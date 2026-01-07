@@ -64,6 +64,21 @@ CODE_LENGTH = 8
 # Alfabet utan lättförväxlade tecken (0/O, 1/I osv)
 CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
+# Namnalias - för personer med alternativa stavningar
+# Lägg till fler vid behov: "söknamn": ["alias1", "alias2"]
+NAME_ALIASES = {
+    "bert ohlsson": ["bert olsson"],
+    "bert olsson": ["bert ohlsson"],
+}
+
+
+def get_name_variants(name):
+    """Returnera alla namnvarianter för en person (inklusive originalet)."""
+    name_lower = name.lower().strip()
+    variants = {name_lower}  # Alltid inkludera originalnamnet
+    if name_lower in NAME_ALIASES:
+        variants.update(NAME_ALIASES[name_lower])
+    return variants
 
 
 # ==================== DATABAS-MODELLER ====================
@@ -400,9 +415,9 @@ def parse_excel_for_person(excel_data, person_name):
     """
     df = pd.read_excel(excel_data, header=0)  # Första raden är rubrik
 
-    person_name_upper = person_name.upper().strip()
-    # Kräv matchning på hela namnet (både för- och efternamn)
-    search_name = person_name_upper
+    # Hämta alla namnvarianter (inklusive alias)
+    name_variants = get_name_variants(person_name)
+    search_names = [v.upper() for v in name_variants]
 
     result = {
         "namn": person_name,
@@ -424,8 +439,8 @@ def parse_excel_for_person(excel_data, person_name):
         kundref_clean = re.sub(r'\s+[A-Z]{0,2}\d{6,}.*$', '', kundref_clean).strip()
         kundref_upper = kundref_clean.upper()
 
-        # Kolla om denna rad matchar personen vi söker (hela namnet måste finnas)
-        if search_name not in kundref_upper:
+        # Kolla om denna rad matchar någon av namnvarianterna (inklusive alias)
+        if not any(search_name in kundref_upper for search_name in search_names):
             continue
 
         # Hämta data från raden
