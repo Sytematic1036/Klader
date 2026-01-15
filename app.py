@@ -69,6 +69,10 @@ CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 NAME_ALIASES = {
     "bert ohlsson": ["bert olsson"],
     "bert olsson": ["bert ohlsson"],
+    "klim samtsov": ["klim samtsou"],
+    "klim samtsou": ["klim samtsov"],
+    "petprasert jaroenpol": ["petperasert jaroenpol"],
+    "petperasert jaroenpol": ["petprasert jaroenpol"],
 }
 
 
